@@ -33,7 +33,7 @@ def expression_needs_ans(expression: str) -> bool:
 
 
 def latest_answer(db: Session) -> float | None:
-    latest = db.scalar(select(CalculationHistory).order_by(CalculationHistory.id.desc()))
+    latest = db.scalar(select(CalculationHistory).order_by(CalculationHistory.id.desc()).limit(1))
     return None if latest is None else latest.result
 
 
@@ -117,7 +117,7 @@ def preview(request: CalculateRequest) -> PreviewResponse:
     status_code=status.HTTP_201_CREATED,
 )
 def calculate(request: CalculateRequest, db: Session = Depends(get_db)) -> CalculateResponse:
-    ans = latest_answer(db)
+    ans = latest_answer(db) if expression_needs_ans(request.expression) else None
     try:
         result, steps = explain_expression(request.expression, ans)
     except CalculationError as exc:
