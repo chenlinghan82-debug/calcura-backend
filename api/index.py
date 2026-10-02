@@ -1,3 +1,3 @@
 ﻿from app.main import app
 
-# Vercel discovers this ASGI application as the serverless entry point.
+# FastAPI ASGI entry point for Vercel Python functions.
