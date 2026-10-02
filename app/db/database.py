@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
 
 BASE_DIR = Path(__file__).resolve().parents[2]
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = Path("/tmp") if os.getenv("VERCEL") else BASE_DIR / "data"
 DATA_DIR.mkdir(exist_ok=True)
 DATABASE_URL = os.getenv(
     "CALCULATOR_DATABASE_URL",
@@ -29,4 +29,5 @@ def get_db():
         yield db
     finally:
         db.close()
+
 
