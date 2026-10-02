@@ -3,8 +3,6 @@ from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy.pool import NullPool
-
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 
@@ -40,9 +38,14 @@ engine_options: dict = {}
 if IS_SQLITE:
     engine_options["connect_args"] = {"check_same_thread": False}
 else:
-    # A serverless worker must not reuse a connection across requests.
+    # Reuse one connection inside a warm serverless instance. pool_pre_ping
+    # drops a connection that Neon closed while the instance was frozen.
     # prepare_threshold=None is required by Neon's pooled PgBouncer endpoint.
-    engine_options["poolclass"] = NullPool
+    engine_options["pool_size"] = 1
+    engine_options["max_overflow"] = 1
+    engine_options["pool_timeout"] = 10
+    engine_options["pool_recycle"] = 280
+    engine_options["pool_pre_ping"] = True
     engine_options["connect_args"] = {"prepare_threshold": None}
 
 engine = create_engine(DATABASE_URL, **engine_options)
@@ -53,27 +56,34 @@ class Base(DeclarativeBase):
     pass
 
 
+_schema_ready = False
+
+
 def ensure_schema() -> None:
-    """Create tables and add columns introduced after the first deployment."""
+    """Create tables on the first real database use, not during import."""
+    global _schema_ready
+    if _schema_ready:
+        return
     from app.models.history import CalculationHistory  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
-    if not IS_SQLITE:
-        return
-    with engine.begin() as connection:
-        rows = connection.exec_driver_sql("PRAGMA table_info(calculation_history)").fetchall()
-        columns = {row[1] for row in rows}
-        if "is_favorite" not in columns:
-            connection.exec_driver_sql(
-                "ALTER TABLE calculation_history ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT 0"
-            )
-        if "steps_json" not in columns:
-            connection.exec_driver_sql(
-                "ALTER TABLE calculation_history ADD COLUMN steps_json VARCHAR(2000) NOT NULL DEFAULT '[]'"
-            )
+    if IS_SQLITE:
+        with engine.begin() as connection:
+            rows = connection.exec_driver_sql("PRAGMA table_info(calculation_history)").fetchall()
+            columns = {row[1] for row in rows}
+            if "is_favorite" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE calculation_history ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT 0"
+                )
+            if "steps_json" not in columns:
+                connection.exec_driver_sql(
+                    "ALTER TABLE calculation_history ADD COLUMN steps_json VARCHAR(2000) NOT NULL DEFAULT '[]'"
+                )
+    _schema_ready = True
 
 
 def get_db():
+    ensure_schema()
     db = SessionLocal()
     try:
         yield db

@@ -66,3 +66,11 @@ class StatsResponse(BaseModel):
     average: float | None = None
     minimum: float | None = None
     maximum: float | None = None
+
+
+class PreviewResponse(BaseModel):
+    success: bool = True
+    expression: str
+    result: float
+    steps: list[str]
+    saved: bool = False

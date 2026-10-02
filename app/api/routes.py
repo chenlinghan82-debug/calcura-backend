@@ -1,13 +1,14 @@
 import csv
 import io
 import json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.database import get_db
+from app.db.database import SessionLocal, ensure_schema, get_db
 from app.models.history import CalculationHistory
 from app.schemas.history import (
     CalculateRequest,
@@ -17,11 +18,25 @@ from app.schemas.history import (
     DeleteResponse,
     FavoriteResponse,
     HistoryResponse,
+    PreviewResponse,
     StatsResponse,
 )
 from app.services.calculator import CalculationError, explain_expression
 
 router = APIRouter(prefix="/api")
+
+_ANS_TOKEN = re.compile(r"(?<![A-Za-z0-9_])ans(?![A-Za-z0-9_])")
+
+
+def expression_needs_ans(expression: str) -> bool:
+    return _ANS_TOKEN.search(expression.lower()) is not None
+
+
+def latest_answer(db: Session) -> float | None:
+    latest = db.scalar(select(CalculationHistory).order_by(CalculationHistory.id.desc()))
+    return None if latest is None else latest.result
+
+
 
 
 def dump_steps(steps: list[str]) -> str:
@@ -70,14 +85,39 @@ def health() -> dict[str, str | bool]:
     }
 
 
+
+@router.post("/preview", response_model=PreviewResponse)
+def preview(request: CalculateRequest) -> PreviewResponse:
+    """Return the backend result without writing history.
+
+    Ordinary expressions do not touch the database. Ans reads the previous
+    saved result and still does not create a new record.
+    """
+    ans = None
+    if expression_needs_ans(request.expression):
+        ensure_schema()
+        db = SessionLocal()
+        try:
+            ans = latest_answer(db)
+        finally:
+            db.close()
+    try:
+        result, steps = explain_expression(request.expression, ans)
+    except CalculationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail={"success": False, "message": str(exc)},
+        ) from exc
+    return PreviewResponse(expression=request.expression, result=result, steps=steps, saved=False)
+
+
 @router.post(
     "/calculate",
     response_model=CalculateResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def calculate(request: CalculateRequest, db: Session = Depends(get_db)) -> CalculateResponse:
-    latest = db.scalar(select(CalculationHistory).order_by(CalculationHistory.id.desc()))
-    ans = None if latest is None else latest.result
+    ans = latest_answer(db)
     try:
         result, steps = explain_expression(request.expression, ans)
     except CalculationError as exc:

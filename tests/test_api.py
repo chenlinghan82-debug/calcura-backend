@@ -140,3 +140,46 @@ def test_postgres_url_normalization(api_client: TestClient) -> None:
     direct = "postgresql://user:secret@ep-example.neon.tech/neondb"
     assert normalize_database_url(direct) == "postgresql+psycopg://user:secret@ep-example.neon.tech/neondb"
     assert normalize_database_url("sqlite:///tmp/calculator.db") == "sqlite:///tmp/calculator.db"
+
+
+def test_preview_does_not_save_and_accepts_plain_text(api_client: TestClient) -> None:
+    missing_answer = api_client.post("/api/preview", json={"expression": "Ans+1"})
+    assert missing_answer.status_code == 400
+    assert "Ans is not available" in missing_answer.json()["detail"]["message"]
+
+    preview = api_client.post("/api/preview", json={"expression": "(2+3)*4"})
+    assert preview.status_code == 200
+    body = preview.json()
+    assert body["success"] is True
+    assert body["result"] == 20
+    assert body["saved"] is False
+    assert "2 + 3 = 5" in body["steps"]
+    assert api_client.get("/api/history").json()["total"] == 0
+
+    plain = api_client.post(
+        "/api/preview",
+        content='{"expression": "6*7"}',
+        headers={"Content-Type": "text/plain;charset=UTF-8"},
+    )
+    assert plain.status_code == 200
+    assert plain.json()["result"] == 42
+    assert api_client.get("/api/history").json()["total"] == 0
+
+    saved = api_client.post(
+        "/api/calculate",
+        content='{"expression": "1+2"}',
+        headers={"Content-Type": "text/plain"},
+    )
+    assert saved.status_code == 201
+    assert saved.json()["result"] == 3
+
+    answer = api_client.post("/api/preview", json={"expression": "Ans+5"})
+    assert answer.status_code == 200
+    assert answer.json()["result"] == 8
+    assert answer.json()["saved"] is False
+    assert api_client.get("/api/history").json()["total"] == 1
+
+    division = api_client.post("/api/preview", json={"expression": "1/0"})
+    assert division.status_code == 400
+    blank = api_client.post("/api/preview", json={"expression": "   "})
+    assert blank.status_code == 422

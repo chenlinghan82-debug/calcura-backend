@@ -57,7 +57,8 @@ python -m uvicorn app.main:app --reload --port 8000
 
 | 方法 | 路径 | 状态码 | 说明 |
 |---|---|---|---|
-| POST | `/api/calculate` | 201 / 400 | 计算成功后保存记录；非法表达式返回 400 |
+| POST | `/api/preview` | 200 / 400 | 只计算结果和步骤，不写数据库。普通算式不连接数据库；表达式中单独出现 ans 时才读取上一次结果 |
+| POST | `/api/calculate` | 201 / 400 | 重新计算并保存记录；非法表达式返回 400 |
 | GET | `/api/history` | 200 | 查询历史，支持 `keyword` 和 `limit` |
 | GET | `/api/history/export` | 200 | 导出 CSV |
 | POST | `/api/history/{id}/favorite` | 200 / 404 | 切换收藏 |
@@ -65,6 +66,9 @@ python -m uvicorn app.main:app --reload --port 8000
 | DELETE | `/api/history` | 200 | 清空全部记录 |
 | GET | `/api/stats` | 200 | 数量、平均值、最小值、最大值 |
 | GET | `/api/health` | 200 | 健康检查 |
+
+
+普通算式的答案由 `/api/preview` 返回，页面不必等待数据库写入。`/api/calculate` 会在后端再次独立计算并保存历史，前端不会把已经算好的数字交给后端存储。页面上的 Ans 按钮会把上次结果写成数字后提交；只有表达式里单独写出 `ans` 时才读取数据库。
 
 计算请求：
 
