@@ -1,4 +1,5 @@
 import os
+import time
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,7 +26,18 @@ class TextPlainAsJsonMiddleware:
             if changed:
                 scope = dict(scope)
                 scope["headers"] = headers
-        await self.app(scope, receive, send)
+        started = time.perf_counter()
+
+        async def send_timed(message):
+            if message["type"] == "http.response.start":
+                elapsed = f"{(time.perf_counter() - started) * 1000:.1f}".encode()
+                headers = list(message.get("headers") or [])
+                headers.append((b"x-calc-ms", elapsed))
+                message = dict(message)
+                message["headers"] = headers
+            await send(message)
+
+        await self.app(scope, receive, send_timed)
 
 
 app = FastAPI(
