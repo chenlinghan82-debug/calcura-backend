@@ -17,7 +17,7 @@ CONSTANTS = {
     "pi": Decimal("3.141592653589793238462643383"),
     "e": Decimal("2.718281828459045235360287471"),
 }
-FUNCTIONS = {"sqrt", "abs"}
+FUNCTIONS = {"sqrt", "abs", "sin", "cos", "tan", "ln", "log"}
 
 
 class CalculationError(ValueError):
@@ -224,15 +224,50 @@ class Parser:
             argument = self._expression()
             if not self._match("RPAREN"):
                 raise CalculationError("Missing closing parenthesis")
-            if name == "sqrt":
-                if argument < 0:
-                    raise CalculationError("Square root of a negative number is not allowed")
-                result = argument.sqrt()
-            else:
-                result = abs(argument)
+            result = self._call_function(name, argument)
             self.steps.append(f"{name}({format_decimal(argument)}) = {format_decimal(result)}")
             return result
         raise CalculationError(f"Unknown name: {name}")
+
+    def _call_function(self, name: str, argument: Decimal) -> Decimal:
+        if name == "sqrt":
+            if argument < 0:
+                raise CalculationError("Square root of a negative number is not allowed")
+            return argument.sqrt()
+        if name == "abs":
+            return abs(argument)
+        return self._rounded_decimal(self._scientific_value(name, argument))
+
+    def _scientific_value(self, name: str, argument: Decimal) -> float:
+        number = float(argument)
+        if name == "sin":
+            return math.sin(math.radians(number))
+        if name == "cos":
+            return math.cos(math.radians(number))
+        if name == "tan":
+            cosine = math.cos(math.radians(number))
+            if abs(cosine) < 1e-12:
+                raise CalculationError("Tangent is undefined for this angle")
+            return math.tan(math.radians(number))
+        if name == "ln":
+            if number <= 0:
+                raise CalculationError("Natural logarithm is only defined for positive numbers")
+            return math.log(number)
+        if name == "log":
+            if number <= 0:
+                raise CalculationError("Logarithm is only defined for positive numbers")
+            return math.log10(number)
+        raise CalculationError(f"Unknown function: {name}")
+
+    def _rounded_decimal(self, numeric: float) -> Decimal:
+        if not math.isfinite(numeric):
+            raise CalculationError("Result is not finite")
+        if abs(numeric) < 1e-12:
+            return Decimal(0)
+        try:
+            return Decimal(f"{numeric:.12g}")
+        except InvalidOperation as exc:
+            raise CalculationError("Result is not finite") from exc
 
     def _apply_power(self, base: Decimal, exponent: Decimal) -> Decimal:
         if abs(exponent) > 1000:

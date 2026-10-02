@@ -61,7 +61,13 @@ def history_query(keyword: str | None):
 
 @router.get("/health")
 def health() -> dict[str, str | bool]:
-    return {"success": True, "status": "ok"}
+    from app.db.database import IS_SQLITE
+
+    return {
+        "success": True,
+        "status": "ok",
+        "database": "sqlite" if IS_SQLITE else "postgresql",
+    }
 
 
 @router.post(

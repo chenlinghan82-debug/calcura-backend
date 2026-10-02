@@ -31,7 +31,10 @@ def api_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
 
 
 def test_health_and_calculation_round_trip(api_client: TestClient) -> None:
-    assert api_client.get("/api/health").json() == {"success": True, "status": "ok"}
+    health = api_client.get("/api/health").json()
+    assert health["success"] is True
+    assert health["status"] == "ok"
+    assert health["database"] == "sqlite"
 
     response = api_client.post("/api/calculate", json={"expression": "(2+3)*4"})
     assert response.status_code == 201
@@ -125,3 +128,15 @@ def test_steps_favorite_export_and_previous_answer(api_client: TestClient) -> No
     assert "text/csv" in exported.headers["content-type"]
     assert "(2+3)*4" in exported.text
     assert "Ans+5" in exported.text
+
+
+def test_postgres_url_normalization(api_client: TestClient) -> None:
+    from app.db.database import normalize_database_url
+
+    pooled = "postgres://user:secret@ep-example.neon.tech/neondb?sslmode=require"
+    assert normalize_database_url(pooled) == (
+        "postgresql+psycopg://user:secret@ep-example.neon.tech/neondb?sslmode=require"
+    )
+    direct = "postgresql://user:secret@ep-example.neon.tech/neondb"
+    assert normalize_database_url(direct) == "postgresql+psycopg://user:secret@ep-example.neon.tech/neondb"
+    assert normalize_database_url("sqlite:///tmp/calculator.db") == "sqlite:///tmp/calculator.db"

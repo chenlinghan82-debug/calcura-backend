@@ -94,15 +94,16 @@ python -m uvicorn app.main:app --reload --port 8000
 
 - 运算符优先级：幂高于乘除，乘除高于加减；幂从右向左结合，因此 `-2^2 = -4`
 - 括号、一元正负号和小数
-- `sqrt(x)`、`abs(x)`、`x!`、`x%`、`pi`、`e`
+- `sqrt(x)`、`abs(x)`、`sin(x)`、`cos(x)`、`tan(x)`、`ln(x)`、`log(x)`、`x!`、`x%`、`pi`、`e`。三角函数使用角度，不是弧度。
 - `Ans` 表示最近一次成功结果
 - 除零、负数开方、非法阶乘和无法识别的字符都会返回明确错误
 
 ## 配置
 
-- `CALCULATOR_DATABASE_URL`：默认本地 SQLite。部署到 PostgreSQL 时改为对应连接串。
+- `CALCULATOR_DATABASE_URL`：优先使用。本地默认 SQLite。
+- `POSTGRES_URL`、`DATABASE_URL`、`POSTGRES_URL_NON_POOLING` 或 `DATABASE_URL_UNPOOLED`：线上 PostgreSQL 连接串。程序会把 `postgres://` 转成 SQLAlchemy 可识别的 `postgresql+psycopg://`。
 - `CALCULATOR_CORS_ORIGINS`：逗号分隔的前端来源。未设置时允许所有来源。
-- 在 Vercel 上，未配置外部数据库时使用 `/tmp/calculator.db`。同一运行实例内刷新页面历史仍在；实例回收后文件型 SQLite 可能被清空。长期保存可配置 PostgreSQL 连接串。
+- 已部署的线上后端使用 Neon PostgreSQL，所有 Vercel 实例读写同一份历史。只有本地没有配置连接串时才使用 SQLite 文件。
 
 ## 测试
 

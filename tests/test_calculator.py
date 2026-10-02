@@ -23,6 +23,12 @@ from app.services.calculator import CalculationError, calculate_expression
         ("5!", 120),
         ("sqrt(16)", 4),
         ("abs(-3.5)", 3.5),
+        ("sin(30)", 0.5),
+        ("cos(60)", 0.5),
+        ("tan(45)", 1),
+        ("ln(1)", 0),
+        ("log(100)", 2),
+        ("log(1000)", 3),
     ],
 )
 def test_valid_expressions(expression: str, expected: float) -> None:
@@ -43,6 +49,9 @@ def test_valid_expressions(expression: str, expected: float) -> None:
         "sqrt(-1)",
         "1.5!",
         "2^10000",
+        "ln(0)",
+        "log(-2)",
+        "tan(90)",
     ],
 )
 def test_invalid_expressions(expression: str) -> None:
