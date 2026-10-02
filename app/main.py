@@ -1,18 +1,17 @@
-﻿import os
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router
-from app.db.database import Base, engine
-from app.models.history import CalculationHistory  # noqa: F401 - registers the model
+from app.db.database import ensure_schema
 
-Base.metadata.create_all(bind=engine)
+ensure_schema()
 
 app = FastAPI(
     title="Calcura API",
-    version="1.0.0",
-    description="A secure, backend-calculated calculator API.",
+    version="1.1.0",
+    description="A secure, backend-calculated calculator API with history, steps, and scientific operations.",
 )
 
 configured_origins = os.getenv("CALCULATOR_CORS_ORIGINS", "*")

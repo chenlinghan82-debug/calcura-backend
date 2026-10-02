@@ -15,6 +15,14 @@ from app.services.calculator import CalculationError, calculate_expression
         ("3 * -2", -6),
         ("0.1 + 0.2", 0.3),
         ("--5", 5),
+        ("2^3", 8),
+        ("2^3^2", 512),
+        ("-2^2", -4),
+        ("50%", 0.5),
+        ("200*10%", 20),
+        ("5!", 120),
+        ("sqrt(16)", 4),
+        ("abs(-3.5)", 3.5),
     ],
 )
 def test_valid_expressions(expression: str, expected: float) -> None:
@@ -32,6 +40,9 @@ def test_valid_expressions(expression: str, expected: float) -> None:
         "2..3",
         "2 ** 3",
         "2 + abc",
+        "sqrt(-1)",
+        "1.5!",
+        "2^10000",
     ],
 )
 def test_invalid_expressions(expression: str) -> None:
@@ -42,3 +53,13 @@ def test_invalid_expressions(expression: str) -> None:
 def test_no_python_code_execution() -> None:
     with pytest.raises(CalculationError):
         calculate_expression("__import__('os').system('whoami')")
+
+
+def test_previous_answer_and_explanation_steps() -> None:
+    from app.services.calculator import explain_expression
+
+    value, steps = explain_expression("(2+3)*4")
+    assert value == 20
+    assert "2 + 3 = 5" in steps
+    assert "5 * 4 = 20" in steps
+    assert calculate_expression("Ans*3", ans=4) == 12

@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timezone
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field, field_serializer, field_validator
 
@@ -19,12 +19,12 @@ class CalculationRecord(BaseModel):
     id: int
     expression: str
     result: float
+    is_favorite: bool = False
+    steps: list[str] = Field(default_factory=list)
     created_at: datetime
 
     @field_serializer("created_at")
     def serialize_created_at(self, value: datetime) -> str:
-        # SQLite returns naive datetimes even though the application stores UTC.
-        # Treat a naive value as UTC and always expose an explicit ISO-8601 offset.
         normalized = value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
         return normalized.isoformat(timespec="milliseconds").replace("+00:00", "Z")
 
@@ -35,6 +35,7 @@ class CalculateResponse(BaseModel):
     success: bool = True
     expression: str
     result: float
+    steps: list[str]
     record: CalculationRecord
 
 
@@ -52,6 +53,11 @@ class DeleteResponse(BaseModel):
 class ClearResponse(BaseModel):
     success: bool = True
     deleted_count: int
+
+
+class FavoriteResponse(BaseModel):
+    success: bool = True
+    record: CalculationRecord
 
 
 class StatsResponse(BaseModel):

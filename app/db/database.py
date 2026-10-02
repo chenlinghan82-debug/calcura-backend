@@ -1,4 +1,4 @@
-﻿import os
+import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
@@ -23,11 +23,29 @@ class Base(DeclarativeBase):
     pass
 
 
+def ensure_schema() -> None:
+    """Create tables and add columns introduced after the first deployment."""
+    from app.models.history import CalculationHistory  # noqa: F401
+
+    Base.metadata.create_all(bind=engine)
+    if not str(engine.url).startswith("sqlite"):
+        return
+    with engine.begin() as connection:
+        rows = connection.exec_driver_sql("PRAGMA table_info(calculation_history)").fetchall()
+        columns = {row[1] for row in rows}
+        if "is_favorite" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE calculation_history ADD COLUMN is_favorite BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "steps_json" not in columns:
+            connection.exec_driver_sql(
+                "ALTER TABLE calculation_history ADD COLUMN steps_json VARCHAR(2000) NOT NULL DEFAULT '[]'"
+            )
+
+
 def get_db():
     db = SessionLocal()
     try:
         yield db
     finally:
         db.close()
-
-

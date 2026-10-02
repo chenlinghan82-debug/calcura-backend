@@ -104,3 +104,24 @@ def test_stats_are_calculated_from_persisted_records(api_client: TestClient) -> 
     assert stats.json()["average"] == pytest.approx(4)
     assert stats.json()["minimum"] == 2
     assert stats.json()["maximum"] == 6
+
+
+def test_steps_favorite_export_and_previous_answer(api_client: TestClient) -> None:
+    first = api_client.post("/api/calculate", json={"expression": "(2+3)*4"})
+    assert first.status_code == 201
+    assert "2 + 3 = 5" in first.json()["steps"]
+    record_id = first.json()["record"]["id"]
+
+    favorite = api_client.post(f"/api/history/{record_id}/favorite")
+    assert favorite.status_code == 200
+    assert favorite.json()["record"]["is_favorite"] is True
+
+    answer = api_client.post("/api/calculate", json={"expression": "Ans+5"})
+    assert answer.status_code == 201
+    assert answer.json()["result"] == 25
+
+    exported = api_client.get("/api/history/export")
+    assert exported.status_code == 200
+    assert "text/csv" in exported.headers["content-type"]
+    assert "(2+3)*4" in exported.text
+    assert "Ans+5" in exported.text
